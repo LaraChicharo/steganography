@@ -281,8 +281,4 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 	clean(&p_img, &png_ptr, &info_ptr, &end_info, img.height);
-	
-
-// compile without error handling for now:
-// PNG_SETJMP_NOT_SUPPORTED
 }
