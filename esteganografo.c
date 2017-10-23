@@ -17,6 +17,13 @@ struct png_image {
 
 png_bytep *row_pointers;  // Needs to be global
 
+void safe_open_png(FILE **fp, char* name, char* mode) {
+	*fp = fopen(name, mode);
+	if (*fp == NULL) {
+		fprintf(stderr, "File %s cant be opened\n", name);
+		exit(1);
+	}
+}
 
 void init_png_image(
 	struct png_image* img, int width,
@@ -50,7 +57,8 @@ void free_row_bytes(int height) {
 }
 
 void write_new_img(char* out_name, png_infop *info_ptr) {
-	FILE *fwp = fopen(out_name, "wb");
+	FILE *fwp;
+	safe_open_png(&fwp, out_name, "wb");
 	
 	png_structp png_ptr = png_create_write_struct(
 		PNG_LIBPNG_VER_STRING,
@@ -61,7 +69,6 @@ void write_new_img(char* out_name, png_infop *info_ptr) {
 		exit(1);
 
 	png_init_io(png_ptr, fwp);
-	// (, , , png_transforms, )
 	png_write_png(png_ptr, *info_ptr, 0, NULL);
 	png_write_image(png_ptr, row_pointers);
 	png_write_end(png_ptr, *info_ptr);
@@ -192,7 +199,7 @@ void set_up(
 	png_infop *info_ptr,
 	png_infop *end_info) {
 
-	*p_img = fopen(name, "rb");
+	safe_open_png(p_img, name, "rb");
 	char header[8];    // 8 is the max size that can be checked
 	fread(header, 1, 8, *p_img);
 	if(png_sig_cmp(header, 0, 8)) {
