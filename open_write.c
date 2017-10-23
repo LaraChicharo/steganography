@@ -6,16 +6,31 @@
 
 #define PNG_SETJMP_NOT_SUPPORTED
 
-#define NAME "img/bw.png"
+#define NAME "img/k.png"
 #define OUT_NAME "img/out.png"
 
+struct png_image {
+	int width;
+	int height;
+	int channels;
+};
+
+
+png_bytep *row_pointers;  // Needs to be global
+
+void init_png_image(
+	struct png_image* img, int width, int height, int channels) {
+	img->width = width;
+	img->height = height;
+	img->channels = channels;
+}
 
 void open_check_img(FILE *p_img) {
 	p_img = fopen(NAME, "rb");
 	assert(p_img != NULL);
 }
 
-void write_new_img(png_bytep **row_pointers, png_infop *info_ptr) {
+void write_new_img(png_infop *info_ptr) {
 	FILE *fwp = fopen(OUT_NAME, "wb");
 	
 	png_structp png_ptr = png_create_write_struct(
@@ -26,35 +41,30 @@ void write_new_img(png_bytep **row_pointers, png_infop *info_ptr) {
 	if(!png_ptr)
 		exit(1);
 
-	/*png_infop info_ptr = png_create_info_struct(png_ptr);
-	if(!info_ptr) {
-		png_destroy_write_struct(&png_ptr,(png_infopp)NULL);
-		exit(1);
-	}*/
-	
 	png_init_io(png_ptr, fwp);
 	// (, , , png_transforms, )
 	png_write_png(png_ptr, *info_ptr, 0, NULL);
-	png_write_image(png_ptr, *row_pointers);
+	png_write_image(png_ptr, row_pointers);
 	png_write_end(png_ptr, *info_ptr);
 
 	png_destroy_write_struct(&png_ptr, NULL);
-	//fwrite(buff, 1, sizeof(buff), p_new_img);
 	fclose(fwp);
 
 }
 
+void write_sequence_of_bytes_to_image(
+	struct png_image* img,
+	char** bytes,
+	int seq_size) {
 
-/*void modify_row_bytes(
-	png_bytep *row_pointers, int width, int height) {
 	int i;
 	int j;
-	for (i=0; i < height; i++) {
-		for (j=0; j < width; i++) {
-			*row_pointers[i][j] ^= (1 << 1);  // toggle 7th bit
+	for (i=0; i < img->height; i++) {
+		for (j=0; j < img->channels * img->width; j++) {
+			row_pointers[i][j] ^= (1 << 6); 
 		}
 	}
-}*/
+}
 
 int main(void) {
 	
@@ -103,7 +113,6 @@ int main(void) {
 	// int number_of_passes = png_set_interlace_handling(png_ptr);
 	// png_read_update_info(png_ptr, info_ptr);
 	
-	png_bytep *row_pointers;
 	row_pointers = (png_bytep*) malloc(sizeof(png_bytep) * height);
 	int i;
 	for(i=0; i < height; i++)
@@ -116,16 +125,15 @@ int main(void) {
 
 	png_set_rows(png_ptr, info_ptr, row_pointers);
 	png_read_end(png_ptr, end_info);
+
+	struct png_image img;
+	init_png_image(&img, width, height, channels);
 	
-	//modify_row_bytes(row_pointers, width, height);
-	int j;
-	for (i=0; i < height; i++) {
-		for (j=0; j < channels*width; j++) {
-			row_pointers[i][j] ^= (1 << 6); 
-		}
-	}
+	char* bytes;
+
+	write_sequence_of_bytes_to_image(&img, &bytes, 0);
 	
-	write_new_img(&row_pointers, &info_ptr);
+	write_new_img(&info_ptr);
 
 	// Clean
 	for (i=0; i < height; i++)
