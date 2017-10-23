@@ -1,10 +1,10 @@
 # Makefile
 LDFLAGS=-lpng
 
-open_write: open_write.o
-	cc -o open_write open_write.o $(LDFLAGS)
-open_write.o:
-	cc -c open_write.c
+esteganografo: esteganografo.o
+	cc -o esteganografo esteganografo.o $(LDFLAGS)
+esteganografo.o:
+	cc -c esteganografo.c
 
 clean:
-	rm *.o open_write
+	rm *.o esteganografo
