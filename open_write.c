@@ -71,6 +71,11 @@ void write_new_img(char* out_name, png_infop *info_ptr) {
 
 }
 
+void too_much_text_error(void) {
+	fprintf(stderr, "Too much text!!");
+	exit(1);
+}
+
 void decode(char** bytes, struct png_image* img) {
 	int i;
 	int j;
@@ -81,6 +86,8 @@ void decode(char** bytes, struct png_image* img) {
 	char current_char = 0;
 	for (i=0; i < img->height; i++) {
 		for (j=0; j < img->channels * img->width; j++) {
+			if (z > MAX_CHARS)
+				too_much_text_error();
 			lsb = (row_pointers[i][j]) & 1;
 			if (!lsb)
 				zeroes_in_row++;
@@ -243,11 +250,15 @@ int main(int argc, char** argv) {
 		free(decoded);
 	} else if (strcmp(argv[1],"h") == 0) {  // hide text
 		
+		int len = strlen(argv[4]);
+		if (len > MAX_CHARS)
+			too_much_text_error();
+		
 		set_up(&p_img, argv[2], &png_ptr, &info_ptr, &end_info);
 		read_png_image(&img, &png_ptr, &info_ptr, &end_info);
-		
+
 		write_sequence_of_bytes_to_image(
-			&img, &argv[4], strlen(argv[4]));
+			&img, &argv[4], len);
 		write_new_img(argv[3], &info_ptr);
 	} else {
 		fprintf(stderr, "%s", "Invalid input\n");
