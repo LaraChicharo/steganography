@@ -28,6 +28,8 @@ void safe_open_png(FILE **fp, char* name, char* mode) {
 void init_png_image(
 	struct png_image* img, int width,
 	int height, int channels, char bit_depth) {
+	// Init structure to store useful info about an image
+
 	img->width = width;
 	img->height = height;
 	img->channels = channels;
@@ -38,6 +40,7 @@ void allocate_row_bytes(
 	struct png_image* img,
 	png_structp* png_ptr,
 	png_infop* info_ptr) {
+	// Allocating the space for the *actual* data of the image.
 	
 	row_pointers =
 		(png_bytep*) malloc(sizeof(png_bytep) * img->height);
@@ -75,7 +78,6 @@ void write_new_img(char* out_name, png_infop *info_ptr) {
 
 	png_destroy_write_struct(&png_ptr, NULL);
 	fclose(fwp);
-
 }
 
 void too_much_text_error(void) {
@@ -84,6 +86,7 @@ void too_much_text_error(void) {
 }
 
 void decode(char** bytes, struct png_image* img) {
+	// Decoding (unhiding) text from an image
 	int i;
 	int j;
 	int zeroes_in_row = 0;
@@ -120,6 +123,7 @@ void decode(char** bytes, struct png_image* img) {
 }
 
 void write_null_byte(int i, int j, int height, int actual_width) {
+	// Writing 8 zeroes at the end of a string of hidden text.
 	int k = 0;
 	for (i; i < height; i++) {
 		for (j; j < actual_width; j++) {
@@ -198,6 +202,7 @@ void set_up(
 	png_structp *png_ptr,
 	png_infop *info_ptr,
 	png_infop *end_info) {
+	// Setting up libpng
 
 	safe_open_png(p_img, name, "rb");
 	char header[8];    // 8 is the max size that can be checked
