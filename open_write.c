@@ -7,7 +7,7 @@
 #define PNG_SETJMP_NOT_SUPPORTED
 
 #define NAME "img/bw.png"
-#define OUT_NAME "img/bw_out.png"
+#define OUT_NAME "img/out.png"
 
 
 void open_check_img(FILE *p_img) {
@@ -99,7 +99,7 @@ int main(void) {
 
 	int width = png_get_image_width(png_ptr, info_ptr);
 	int height = png_get_image_height(png_ptr, info_ptr);
-
+	int channels = png_get_channels(png_ptr, info_ptr);
 	// int number_of_passes = png_set_interlace_handling(png_ptr);
 	// png_read_update_info(png_ptr, info_ptr);
 	
@@ -115,29 +115,23 @@ int main(void) {
 	png_read_image(png_ptr, row_pointers);
 
 	png_set_rows(png_ptr, info_ptr, row_pointers);
-	//row_pointers = png_get_rows(png_ptr, info_ptr);
-	//png_read_image(png_ptr, row_pointers);
 	png_read_end(png_ptr, end_info);
 	
 	//modify_row_bytes(row_pointers, width, height);
 	int j;
 	for (i=0; i < height; i++) {
-		for (j=0; j < 4*width; j++) {
+		for (j=0; j < channels*width; j++) {
 			row_pointers[i][j] ^= (1 << 6); 
-			// segmentation fault
-			// try allocating this yourself and see what happens
 		}
 	}
 	
 	write_new_img(&row_pointers, &info_ptr);
 
 	// Clean
-	/*
-	int i;
 	for (i=0; i < height; i++)
 		free(row_pointers[i]);
-	free(row_pointers);*/
-	// png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+	free(row_pointers);
+	png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
 	fclose(p_img);
 
 // compile without error handling for now:
