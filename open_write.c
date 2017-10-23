@@ -71,22 +71,29 @@ void write_new_img(char* out_name, png_infop *info_ptr) {
 
 }
 
-void decode(char** bytes, int seq_size, struct png_image* img) {
+void decode(char** bytes, struct png_image* img) {
 	int i;
 	int j;
+	int zeroes_in_row = 0;
 	int z = 0;
 	int k = 7;
 	char lsb;
 	char current_char = 0;
 	for (i=0; i < img->height; i++) {
 		for (j=0; j < img->channels * img->width; j++) {
-			if (z == seq_size) { 
+			lsb = (row_pointers[i][j]) & 1;
+			if (!lsb)
+				zeroes_in_row++;
+			else
+				zeroes_in_row = 0;
+			
+			if (zeroes_in_row == 8) { 
 				// rewinding array of characters
 				for (z; z > 0; z--)
 					*(*bytes)--;
 				return;
 			}
-			lsb = (row_pointers[i][j]) & 1;
+
 			current_char ^= (-lsb ^ current_char) & (1 << k--);
 			if (k < 0) {
 				k = 7;
@@ -225,15 +232,13 @@ int main(int argc, char** argv) {
 	struct png_image img;
 	
 	
-	int seq_size = 4;  // decoding does not work with variable
-	// len yet.
 	if (strcmp(argv[1], "u") == 0) {  // unhide text
 		
 		set_up(&p_img, argv[2], &png_ptr, &info_ptr, &end_info);
 		read_png_image(&img, &png_ptr, &info_ptr, &end_info);
 		
 		char* decoded = malloc(sizeof(char) * MAX_CHARS);
-		decode(&decoded, seq_size, &img);
+		decode(&decoded, &img);
 		printf("%s\n", decoded);
 		free(decoded);
 	} else if (strcmp(argv[1],"h") == 0) {  // hide text
