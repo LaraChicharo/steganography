@@ -16,8 +16,8 @@ struct png_image {
 	char bit_depth;
 };
 
-
 png_bytep *row_pointers;  // Needs to be global
+
 
 void init_png_image(
 	struct png_image* img, int width,
@@ -131,6 +131,38 @@ void write_sequence_of_bytes_to_image(
 	}
 }
 
+void clean(
+	FILE **p_img,
+	png_structp* png_ptr,
+	png_infop* info_ptr, png_infop* end_info,
+	int height) {
+	
+	free_row_bytes(height);
+	png_destroy_read_struct(png_ptr, info_ptr, end_info);
+	fclose(*p_img);
+}
+
+void read_png_image(
+	struct png_image* img,
+	png_structp* png_ptr,
+	png_infop* info_ptr,
+	png_infop *end_info) {
+
+	int width = png_get_image_width(*png_ptr, *info_ptr);
+	int height = png_get_image_height(*png_ptr, *info_ptr);
+	int channels = png_get_channels(*png_ptr, *info_ptr);
+	int bit_depth = png_get_bit_depth(*png_ptr, *info_ptr);
+	
+	init_png_image(img, width, height, channels, bit_depth);
+	
+	allocate_row_bytes(img, png_ptr, info_ptr);
+	
+	png_read_image(*png_ptr, row_pointers);
+
+	png_set_rows(*png_ptr, *info_ptr, row_pointers);
+	png_read_end(*png_ptr, *end_info);
+}
+
 int main(void) {
 	
 	FILE *p_img;
@@ -169,28 +201,12 @@ int main(void) {
 	png_init_io(png_ptr, p_img);
 	png_set_sig_bytes(png_ptr, 8);
 
-	// (, , , png_transforms, )
 	png_read_info(png_ptr, info_ptr);
-
-	int width = png_get_image_width(png_ptr, info_ptr);
-	int height = png_get_image_height(png_ptr, info_ptr);
-	int channels = png_get_channels(png_ptr, info_ptr);
-	int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
-	// int number_of_passes = png_set_interlace_handling(png_ptr);
-	// png_read_update_info(png_ptr, info_ptr);
-	
 	struct png_image img;
-	init_png_image(&img, width, height, channels, bit_depth);
+	read_png_image(&img, &png_ptr, &info_ptr, &end_info);
 	
-	allocate_row_bytes(&img, &png_ptr, &info_ptr);
-	
-	png_read_image(png_ptr, row_pointers);
-
-	png_set_rows(png_ptr, info_ptr, row_pointers);
-	png_read_end(png_ptr, end_info);
-	
-	int decode = 1;
-
+	int decode_flag = 1;
+	int seq_size = 3;
 	if (decode) {
 		// Make sure you are reading the right image
 		// We are opening the image NAME.
@@ -201,15 +217,11 @@ int main(void) {
 	} else {
 		// encode text.
 		char *bytes = "apu";  // sample text
-		int seq_size = 3;
 		write_sequence_of_bytes_to_image(&img, &bytes, seq_size);
 		write_new_img(&info_ptr);
 	}
+	clean(&p_img, &png_ptr, &info_ptr, &end_info, img.height);
 	
-	// Clean
-	free_row_bytes(img.height);
-	png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
-	fclose(p_img);
 
 // compile without error handling for now:
 // PNG_SETJMP_NOT_SUPPORTED
