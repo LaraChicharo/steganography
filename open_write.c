@@ -6,7 +6,7 @@
 
 #define PNG_SETJMP_NOT_SUPPORTED
 
-#define NAME "img/k.png"
+#define NAME "img/v.png"
 #define OUT_NAME "img/out.png"
 
 struct png_image {
@@ -23,6 +23,28 @@ void init_png_image(
 	img->width = width;
 	img->height = height;
 	img->channels = channels;
+}
+
+void allocate_row_bytes(
+	struct png_image* img,
+	png_structp* png_ptr,
+	png_infop* info_ptr) {
+	
+	row_pointers =
+		(png_bytep*) malloc(sizeof(png_bytep) * img->height);
+	int i;
+	for(i=0; i < img->height; i++)
+		row_pointers[i] = NULL; // security precaution
+	for(i=0; i < img->height; i++)
+		row_pointers[i] = (png_byte*) malloc(
+			png_get_rowbytes(*png_ptr, *info_ptr));
+}
+
+void free_row_bytes(int height) {
+	int i;
+	for (i=0; i < height; i++)
+		free(row_pointers[i]);
+	free(row_pointers);
 }
 
 void open_check_img(FILE *p_img) {
@@ -113,21 +135,16 @@ int main(void) {
 	// int number_of_passes = png_set_interlace_handling(png_ptr);
 	// png_read_update_info(png_ptr, info_ptr);
 	
-	row_pointers = (png_bytep*) malloc(sizeof(png_bytep) * height);
-	int i;
-	for(i=0; i < height; i++)
-		row_pointers[i] = NULL; // security precaution
-	for(i=0; i < height; i++)
-		row_pointers[i] = (png_byte*) malloc(
-			png_get_rowbytes(png_ptr, info_ptr));
+	struct png_image img;
+	init_png_image(&img, width, height, channels);
+	
+	allocate_row_bytes(&img, &png_ptr, &info_ptr);
 	
 	png_read_image(png_ptr, row_pointers);
 
 	png_set_rows(png_ptr, info_ptr, row_pointers);
 	png_read_end(png_ptr, end_info);
 
-	struct png_image img;
-	init_png_image(&img, width, height, channels);
 	
 	char* bytes;
 
@@ -136,9 +153,7 @@ int main(void) {
 	write_new_img(&info_ptr);
 
 	// Clean
-	for (i=0; i < height; i++)
-		free(row_pointers[i]);
-	free(row_pointers);
+	free_row_bytes(img.height);
 	png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
 	fclose(p_img);
 
