@@ -6,8 +6,7 @@
 
 #define PNG_SETJMP_NOT_SUPPORTED
 
-#define NAME "img/out.png"
-#define OUT_NAME "img/out.png"
+// #define NAME "img/out.png"
 
 struct png_image {
 	int width;
@@ -50,13 +49,8 @@ void free_row_bytes(int height) {
 	free(row_pointers);
 }
 
-void open_check_img(FILE *p_img) {
-	p_img = fopen(NAME, "rb");
-	assert(p_img != NULL);
-}
-
-void write_new_img(png_infop *info_ptr) {
-	FILE *fwp = fopen(OUT_NAME, "wb");
+void write_new_img(char* out_name, png_infop *info_ptr) {
+	FILE *fwp = fopen(out_name, "wb");
 	
 	png_structp png_ptr = png_create_write_struct(
 		PNG_LIBPNG_VER_STRING,
@@ -163,62 +157,81 @@ void read_png_image(
 	png_read_end(*png_ptr, *end_info);
 }
 
-int main(void) {
-	
-	FILE *p_img;
-	p_img = fopen(NAME, "rb");
+void set_up(
+	FILE **p_img,
+	char* name,
+	png_structp *png_ptr,
+	png_infop *info_ptr,
+	png_infop *end_info) {
 
+	*p_img = fopen(name, "rb");
 	char header[8];    // 8 is the max size that can be checked
-	fread(header, 1, 8, p_img);
+	fread(header, 1, 8, *p_img);
 	if(png_sig_cmp(header, 0, 8)) {
 		fprintf(stderr, "%s\n", "Its not PNG");
-		return(1);
+		exit(1);
 	}
 	
-	png_structp png_ptr = png_create_read_struct(
+	*png_ptr = png_create_read_struct(
 		PNG_LIBPNG_VER_STRING,
 		NULL,
 		NULL,
 		NULL);
 
-	if (!png_ptr)
+	if (!(*png_ptr))
 		exit(1);
-
-	png_infop info_ptr = png_create_info_struct(png_ptr);
-	if (!info_ptr) {
-		png_destroy_read_struct(
-			&png_ptr, (png_infopp)NULL, (png_infopp)NULL);
-		exit(1);
-	}
-
-	png_infop end_info = png_create_info_struct(png_ptr);
-	if (!end_info) {
-		png_destroy_read_struct(
-			&png_ptr, &info_ptr,(png_infopp)NULL);
-		exit(1);
-	}
-
-	png_init_io(png_ptr, p_img);
-	png_set_sig_bytes(png_ptr, 8);
-
-	png_read_info(png_ptr, info_ptr);
-	struct png_image img;
-	read_png_image(&img, &png_ptr, &info_ptr, &end_info);
 	
-	int decode_flag = 1;
+	*info_ptr = png_create_info_struct(*png_ptr);
+	if (!(*info_ptr)) {
+		png_destroy_read_struct(
+			png_ptr, (png_infopp)NULL, (png_infopp)NULL);
+		exit(1);
+	}
+	
+	*end_info = png_create_info_struct(*png_ptr);
+	if (!(end_info)) {
+		png_destroy_read_struct(
+			png_ptr, info_ptr,(png_infopp)NULL);
+		exit(1);
+	}
+
+	png_init_io(*png_ptr, *p_img);
+	png_set_sig_bytes(*png_ptr, 8);
+
+	png_read_info(*png_ptr, *info_ptr);
+}
+
+int main(int argc, char** argv) {
+	
+	FILE *p_img;
+	png_structp png_ptr;
+	png_infop info_ptr; 
+	png_infop end_info;
+
+	struct png_image img;
+	
+	
 	int seq_size = 3;
-	if (decode) {
-		// Make sure you are reading the right image
-		// We are opening the image NAME.
+	if (strcmp(argv[1], "u") == 0) {  // unhide text
+		
+		set_up(&p_img, argv[2], &png_ptr, &info_ptr, &end_info);
+		read_png_image(&img, &png_ptr, &info_ptr, &end_info);
+		
 		char* decoded = malloc(sizeof(char) * 4);
 		decode(&decoded, seq_size, &img);
 		printf("decoded: %s\n", decoded);
 		free(decoded);
-	} else {
-		// encode text.
+	} else if (strcmp(argv[1],"h") == 0) {  // hide text
+		
+		set_up(&p_img, argv[2], &png_ptr, &info_ptr, &end_info);
+		read_png_image(&img, &png_ptr, &info_ptr, &end_info);
+		
 		char *bytes = "apu";  // sample text
 		write_sequence_of_bytes_to_image(&img, &bytes, seq_size);
-		write_new_img(&info_ptr);
+		write_new_img(argv[3], &info_ptr);
+	} else {
+		fprintf(stderr, "%s", "Invalid input\n");
+		exit(1);
 	}
 	clean(&p_img, &png_ptr, &info_ptr, &end_info, img.height);
 	
