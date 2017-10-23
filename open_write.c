@@ -6,23 +6,26 @@
 
 #define PNG_SETJMP_NOT_SUPPORTED
 
-#define NAME "img/v.png"
+#define NAME "img/out.png"
 #define OUT_NAME "img/out.png"
 
 struct png_image {
 	int width;
 	int height;
 	int channels;
+	char bit_depth;
 };
 
 
 png_bytep *row_pointers;  // Needs to be global
 
 void init_png_image(
-	struct png_image* img, int width, int height, int channels) {
+	struct png_image* img, int width,
+	int height, int channels, char bit_depth) {
 	img->width = width;
 	img->height = height;
 	img->channels = channels;
+	img->bit_depth = bit_depth;
 }
 
 void allocate_row_bytes(
@@ -74,6 +77,33 @@ void write_new_img(png_infop *info_ptr) {
 
 }
 
+void decode(char** bytes, int seq_size, struct png_image* img) {
+	int i;
+	int j;
+	int z = 0;
+	int k = 7;
+	char lsb;
+	char current_char = 0;
+	for (i=0; i < img->height; i++) {
+		for (j=0; j < img->channels * img->width; j++) {
+			if (z == seq_size) { 
+				// rewinding array of characters
+				for (z; z > 0; z--)
+					*(*bytes)--;
+				return;
+			}
+			lsb = (row_pointers[i][j]) & 1;
+			current_char ^= (-lsb ^ current_char) & (1 << k--);
+			if (k < 0) {
+				k = 7;
+				*(*bytes)++ = current_char;
+				z++;
+				current_char = 0;
+			}
+		}
+	}
+}
+
 void write_sequence_of_bytes_to_image(
 	struct png_image* img,
 	char** bytes,
@@ -81,9 +111,22 @@ void write_sequence_of_bytes_to_image(
 
 	int i;
 	int j;
+	int k = 7;
+	int z = 0;
+	char current_byte;
+	char x;
 	for (i=0; i < img->height; i++) {
 		for (j=0; j < img->channels * img->width; j++) {
-			row_pointers[i][j] ^= (1 << 6); 
+			if (z == seq_size) 
+				return;
+			current_byte = **bytes;
+			x = ((current_byte >> k--) & 0x01);
+			row_pointers[i][j] = row_pointers[i][j] & 0xFE | x;
+			if (k < 0) {
+				k = 7;
+				z++;
+				*(*bytes)++;
+			}
 		}
 	}
 }
@@ -132,11 +175,12 @@ int main(void) {
 	int width = png_get_image_width(png_ptr, info_ptr);
 	int height = png_get_image_height(png_ptr, info_ptr);
 	int channels = png_get_channels(png_ptr, info_ptr);
+	int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
 	// int number_of_passes = png_set_interlace_handling(png_ptr);
 	// png_read_update_info(png_ptr, info_ptr);
 	
 	struct png_image img;
-	init_png_image(&img, width, height, channels);
+	init_png_image(&img, width, height, channels, bit_depth);
 	
 	allocate_row_bytes(&img, &png_ptr, &info_ptr);
 	
@@ -144,14 +188,24 @@ int main(void) {
 
 	png_set_rows(png_ptr, info_ptr, row_pointers);
 	png_read_end(png_ptr, end_info);
-
 	
-	char* bytes;
+	int decode = 1;
 
-	write_sequence_of_bytes_to_image(&img, &bytes, 0);
+	if (decode) {
+		// Make sure you are reading the right image
+		// We are opening the image NAME.
+		char* decoded = malloc(sizeof(char) * 4);
+		decode(&decoded, seq_size, &img);
+		printf("decoded: %s\n", decoded);
+		free(decoded);
+	} else {
+		// encode text.
+		char *bytes = "apu";  // sample text
+		int seq_size = 3;
+		write_sequence_of_bytes_to_image(&img, &bytes, seq_size);
+		write_new_img(&info_ptr);
+	}
 	
-	write_new_img(&info_ptr);
-
 	// Clean
 	free_row_bytes(img.height);
 	png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
