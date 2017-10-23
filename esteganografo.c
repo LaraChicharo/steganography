@@ -236,6 +236,13 @@ void set_up(
 	png_read_info(*png_ptr, *info_ptr);
 }
 
+void too_few_arguments_check(int argc, int min) {	
+	if (argc < min) {
+		fprintf(stderr, "%s", "Too few arguments.\n");
+		exit(1);
+	}
+}
+
 int main(int argc, char** argv) {
 	
 	FILE *p_img;
@@ -247,6 +254,7 @@ int main(int argc, char** argv) {
 	
 	
 	if (strcmp(argv[1], "u") == 0) {  // unhide text
+		too_few_arguments_check(argc, 3);
 		
 		set_up(&p_img, argv[2], &png_ptr, &info_ptr, &end_info);
 		read_png_image(&img, &png_ptr, &info_ptr, &end_info);
@@ -256,7 +264,8 @@ int main(int argc, char** argv) {
 		printf("%s\n", decoded);
 		free(decoded);
 	} else if (strcmp(argv[1],"h") == 0) {  // hide text
-		
+		too_few_arguments_check(argc, 4);
+
 		int len = strlen(argv[4]);
 		if (len > MAX_CHARS)
 			too_much_text_error();
