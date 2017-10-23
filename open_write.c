@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
+#include <string.h>
 
 #include <png.h>
 
 #define PNG_SETJMP_NOT_SUPPORTED
 
-// #define NAME "img/out.png"
+#define MAX_CHARS 50000
 
 struct png_image {
 	int width;
@@ -98,6 +98,17 @@ void decode(char** bytes, int seq_size, struct png_image* img) {
 	}
 }
 
+void write_null_byte(int i, int j, int height, int actual_width) {
+	int k = 0;
+	for (i; i < height; i++) {
+		for (j; j < actual_width; j++) {
+			row_pointers[i][j] = row_pointers[i][j] & 0xFE | 0;
+			if (++k >= 7)
+				return;
+		}
+	}
+}
+
 void write_sequence_of_bytes_to_image(
 	struct png_image* img,
 	char** bytes,
@@ -111,8 +122,11 @@ void write_sequence_of_bytes_to_image(
 	char x;
 	for (i=0; i < img->height; i++) {
 		for (j=0; j < img->channels * img->width; j++) {
-			if (z == seq_size) 
+			if (z == seq_size) {
+				write_null_byte(
+					i, j, img->height, img->channels *img->width);
 				return;
+			}
 			current_byte = **bytes;
 			x = ((current_byte >> k--) & 0x01);
 			row_pointers[i][j] = row_pointers[i][j] & 0xFE | x;
@@ -211,23 +225,24 @@ int main(int argc, char** argv) {
 	struct png_image img;
 	
 	
-	int seq_size = 3;
+	int seq_size = 4;  // decoding does not work with variable
+	// len yet.
 	if (strcmp(argv[1], "u") == 0) {  // unhide text
 		
 		set_up(&p_img, argv[2], &png_ptr, &info_ptr, &end_info);
 		read_png_image(&img, &png_ptr, &info_ptr, &end_info);
 		
-		char* decoded = malloc(sizeof(char) * 4);
+		char* decoded = malloc(sizeof(char) * MAX_CHARS);
 		decode(&decoded, seq_size, &img);
-		printf("decoded: %s\n", decoded);
+		printf("%s\n", decoded);
 		free(decoded);
 	} else if (strcmp(argv[1],"h") == 0) {  // hide text
 		
 		set_up(&p_img, argv[2], &png_ptr, &info_ptr, &end_info);
 		read_png_image(&img, &png_ptr, &info_ptr, &end_info);
 		
-		char *bytes = "apu";  // sample text
-		write_sequence_of_bytes_to_image(&img, &bytes, seq_size);
+		write_sequence_of_bytes_to_image(
+			&img, &argv[4], strlen(argv[4]));
 		write_new_img(argv[3], &info_ptr);
 	} else {
 		fprintf(stderr, "%s", "Invalid input\n");
